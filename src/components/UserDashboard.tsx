@@ -15,6 +15,7 @@ interface Interview {
 
 const UserDashboard: React.FC<UserDashboardProps> = ({ apiUrl }) => {
   const [interviews, setInterviews] = useState<Interview[]>([]);
+  const [loading, setLoading] = useState<boolean>(true); // Add loading state
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -34,9 +35,11 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ apiUrl }) => {
         } else {
           setInterviews([]);
         }
+        setLoading(false); // Set loading to false after data is fetched
       })
       .catch((error) => {
         console.error('Error fetching interviews:', error);
+        setLoading(false); // Set loading to false in case of an error
       });
   }, [apiUrl]);
 
@@ -51,7 +54,9 @@ const UserDashboard: React.FC<UserDashboardProps> = ({ apiUrl }) => {
       <Navbar />
       <div className="flex flex-col items-center min-h-screen bg-gray-100 pt-40">
         <h1 className="text-3xl font-semibold text-gray-800 mb-6">Your Interviews</h1>
-        {interviews.length === 0 ? (
+        {loading ? (
+          <p className="text-lg text-gray-600">Loading...</p> // Display loading text while data is being fetched
+        ) : interviews.length === 0 ? (
           <p className="text-lg text-gray-600">No interviews assigned to you yet.</p>
         ) : (
           <ul className="w-full max-w-lg">
