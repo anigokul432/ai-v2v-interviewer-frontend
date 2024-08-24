@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
+// Define the props expected by the EditInterview component
 interface EditInterviewProps {
   apiUrl: string;
 }
 
+// Define the structure of the interview data
 interface InterviewData {
   title: string;
   description: string;
@@ -12,71 +14,75 @@ interface InterviewData {
 }
 
 const EditInterview: React.FC<EditInterviewProps> = ({ apiUrl }) => {
-  const { interviewId } = useParams<{ interviewId: string }>();
+  const { interviewId } = useParams<{ interviewId: string }>(); // Get the interview ID from the URL
   const navigate = useNavigate();
-  const [interview, setInterview] = useState<InterviewData | null>(null);
-  const [title, setTitle] = useState<string>('');
-  const [description, setDescription] = useState<string>('');
-  const [questions, setQuestions] = useState<string>('');
+  const [interview, setInterview] = useState<InterviewData | null>(null); // State to hold the fetched interview data
+  const [title, setTitle] = useState<string>(''); // State to hold the interview title input
+  const [description, setDescription] = useState<string>(''); // State to hold the interview description input
+  const [questions, setQuestions] = useState<string>(''); // State to hold the interview questions input
 
+  // Fetch the interview data when the component mounts
   useEffect(() => {
     fetch(`${apiUrl}/interview/${interviewId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,  // Ensure the token is included
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,  // Ensure the token is included for authentication
       },
     })
       .then((response) => {
         if (!response.ok) {
-          throw new Error('Failed to fetch interview');
+          throw new Error('Failed to fetch interview'); // Handle any errors that occur
         }
-        return response.json();
+        return response.json(); // Parse the response data
       })
       .then((data: InterviewData) => {
         console.log("Fetched interview data:", data);
-        setInterview(data);
-        setTitle(data.title || '');
-        setDescription(data.description || '');
-        setQuestions((data.questions && data.questions.join('\n')) || '');
+        setInterview(data); // Set the fetched interview data to state
+        setTitle(data.title || ''); // Initialize the title input with fetched data
+        setDescription(data.description || ''); // Initialize the description input with fetched data
+        setQuestions((data.questions && data.questions.join('\n')) || ''); // Initialize the questions input with fetched data
       })
       .catch((error) => {
-        console.error('Error fetching interview:', error);
+        console.error('Error fetching interview:', error); // Log any errors
       });
-  }, [apiUrl, interviewId]);
+  }, [apiUrl, interviewId]); // Dependency array ensures this effect runs only when apiUrl or interviewId changes
 
+  // Handle form submission to update the interview
   const handleUpdate = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+    e.preventDefault(); // Prevent default form submission behavior
 
     const updatedInterview: InterviewData = {
-      title,
-      description,
-      questions: questions.split('\n'),
+      title, // Use the current title input value
+      description, // Use the current description input value
+      questions: questions.split('\n'), // Split the questions input into an array of strings
     };
 
+    // Send a PUT request to update the interview with the new data
     fetch(`${apiUrl}/interview/update/${interviewId}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Authorization': `Bearer ${localStorage.getItem('token')}`, // Ensure the token is included for authentication
       },
-      body: JSON.stringify(updatedInterview),
+      body: JSON.stringify(updatedInterview), // Convert the updated interview data to a JSON string
     })
       .then((response) => {
         if (!response.ok) {
-          throw new Error('Failed to update interview');
+          throw new Error('Failed to update interview'); // Handle any errors that occur
         }
-        return response.json();
+        return response.json(); // Parse the response data
       })
       .then((data) => {
         console.log('Interview updated successfully:', data);
-        navigate('/manage-interviews');
+        navigate('/manage-interviews'); // Redirect to the manage interviews page after a successful update
       })
       .catch((error) => {
-        console.error('Error updating interview:', error);
+        console.error('Error updating interview:', error); // Log any errors
       });
   };
 
+  // Display a loading message while the interview data is being fetched
   if (!interview) return <div>Loading...</div>;
 
   return (
@@ -84,6 +90,7 @@ const EditInterview: React.FC<EditInterviewProps> = ({ apiUrl }) => {
       <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
         <h1 className="text-3xl font-bold text-gray-900 mb-6">Edit Interview</h1>
         <form onSubmit={handleUpdate}>
+          {/* Interview Title Input */}
           <div className="mb-4">
             <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="title">
               Interview Title
@@ -97,6 +104,7 @@ const EditInterview: React.FC<EditInterviewProps> = ({ apiUrl }) => {
               required
             />
           </div>
+          {/* Description Input */}
           <div className="mb-4">
             <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="description">
               Description
@@ -109,6 +117,7 @@ const EditInterview: React.FC<EditInterviewProps> = ({ apiUrl }) => {
               required
             />
           </div>
+          {/* Questions Input */}
           <div className="mb-6">
             <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="questions">
               Questions (one per line)
@@ -122,6 +131,7 @@ const EditInterview: React.FC<EditInterviewProps> = ({ apiUrl }) => {
               required
             />
           </div>
+          {/* Submit Button */}
           <div className="flex items-center justify-between">
             <button
               type="submit"

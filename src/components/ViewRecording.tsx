@@ -2,15 +2,18 @@ import React from 'react';
 import { useLocation } from 'react-router-dom';
 
 const ViewRecording: React.FC = () => {
+  // Retrieve the recordingBlob passed through the state from the location
   const location = useLocation();
   const { recordingBlob } = location.state as { recordingBlob: Blob };
     
+  // Handle the case where no recording is available
   if (!recordingBlob) {
     return <p>No recording available.</p>;
   }
 
+  // Create a URL for the Blob to be used as the source in the audio player
   const recordingUrl = URL.createObjectURL(recordingBlob);
-  console.log(recordingUrl)
+  console.log(recordingUrl);
 
   return (
     <div className="min-h-screen bg-gray-100 p-8">

@@ -13,53 +13,56 @@ interface Interview {
 }
 
 const ManageInterviews: React.FC<ManageInterviewsProps> = ({ apiUrl }) => {
-  const [interviews, setInterviews] = useState<Interview[]>([]);
-  const [loading, setLoading] = useState(true); // Add loading state
-  const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
+  const [interviews, setInterviews] = useState<Interview[]>([]); // State to store fetched interviews
+  const [loading, setLoading] = useState(true); // State to manage loading status
+  const [error, setError] = useState<string | null>(null); // State to store any errors encountered
+  const navigate = useNavigate(); // Hook to navigate to different routes
 
+  // Fetch interviews when the component mounts
   useEffect(() => {
     fetch(`${apiUrl}/interview/all`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${localStorage.getItem('token')}`, 
+        'Authorization': `Bearer ${localStorage.getItem('token')}`, // Include the auth token in the request
       },
     })
       .then((response) => {
         if (!response.ok) {
-          throw new Error('Failed to fetch interviews');
+          throw new Error('Failed to fetch interviews'); // Handle non-200 HTTP responses
         }
         return response.json();
       })
       .then((data) => {
         if (Array.isArray(data)) {
-          setInterviews(data);
+          setInterviews(data); // Store the fetched interviews in state
         } else {
-          throw new Error('Expected an array of interviews');
+          throw new Error('Expected an array of interviews'); // Handle unexpected data format
         }
         setLoading(false); // Set loading to false after data is fetched
       })
       .catch((error) => {
-        setError(error.message);
+        setError(error.message); // Store the error message in state
         console.error('Error fetching interviews:', error);
         setLoading(false); // Set loading to false even if there's an error
       });
   }, [apiUrl]);
 
+  // Handle the action of editing an interview by navigating to the edit page
   const handleEditInterview = (interviewId: string) => {
     navigate(`/edit-interview/${interviewId}`);
   };
 
   return (
     <div>
-      <Navbar />
+      <Navbar /> {/* Navbar component for consistent navigation */}
       <div className="min-h-screen bg-gray-100 p-8 pt-20">
         <h1 className="text-4xl font-bold text-gray-900">Manage Interviews</h1>
         <p className="mt-4 text-lg text-gray-700">
           Edit and manage your existing interviews below.
         </p>
 
+        {/* Conditionally render content based on loading, error, and data availability */}
         {loading ? (
           <p className="text-lg text-gray-600 mt-8">Loading interviews...</p> // Display loading message while fetching
         ) : error ? (
@@ -80,7 +83,7 @@ const ManageInterviews: React.FC<ManageInterviewsProps> = ({ apiUrl }) => {
             ))}
           </div>
         ) : (
-          <p className="text-lg text-gray-600 mt-8">No interviews found.</p>
+          <p className="text-lg text-gray-600 mt-8">No interviews found.</p> // Display message when no interviews are found
         )}
       </div>
     </div>

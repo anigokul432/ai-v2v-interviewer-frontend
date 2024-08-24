@@ -1,43 +1,48 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+// Define the props expected by the CreateInterview component
 interface CreateInterviewProps {
   apiUrl: string;
 }
 
 const CreateInterview: React.FC<CreateInterviewProps> = ({ apiUrl }) => {
+  // State variables to hold the form inputs
   const [name, setName] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [questions, setQuestions] = useState<string>('');
   const navigate = useNavigate();
 
+  // Handle form submission
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+    e.preventDefault(); // Prevent default form submission behavior
 
+    // Prepare the interview data to be sent to the backend
     const interviewData = {
-      title: name, // Match the key names with those in your schema
-      description,
-      email,
-      questions: questions.split('\n'), // Ensure this is an array of strings
+      title: name, // The name of the interview
+      description, // The description of the interview
+      email, // The email associated with the interview
+      questions: questions.split('\n'), // Convert the multiline input into an array of questions
     };
 
-    console.log('Interview Data:', interviewData);
+    console.log('Interview Data:', interviewData); // Log the interview data for debugging
 
+    // Send a POST request to create the interview
     fetch(`${apiUrl}/interview/create`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(interviewData),
+      body: JSON.stringify(interviewData), // Convert the interview data to a JSON string
     })
-      .then((response) => response.json())
+      .then((response) => response.json()) // Parse the JSON response
       .then((data) => {
-        console.log('Interview created successfully:', data);
-        navigate('/enterprise-dashboard');
+        console.log('Interview created successfully:', data); // Log success message
+        navigate('/enterprise-dashboard'); // Redirect to the enterprise dashboard after creation
       })
       .catch((error) => {
-        console.error('Error creating interview:', error);
+        console.error('Error creating interview:', error); // Log any errors that occur
       });
   };
 
@@ -46,6 +51,7 @@ const CreateInterview: React.FC<CreateInterviewProps> = ({ apiUrl }) => {
       <div className="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
         <h1 className="text-3xl font-bold text-gray-900 mb-6">Create Interview</h1>
         <form onSubmit={handleSubmit}>
+          {/* Interview Name Input */}
           <div className="mb-4">
             <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="name">
               Interview Name
@@ -59,6 +65,7 @@ const CreateInterview: React.FC<CreateInterviewProps> = ({ apiUrl }) => {
               required
             />
           </div>
+          {/* Description Input */}
           <div className="mb-4">
             <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="description">
               Description
@@ -71,6 +78,7 @@ const CreateInterview: React.FC<CreateInterviewProps> = ({ apiUrl }) => {
               required
             />
           </div>
+          {/* User's Email Input */}
           <div className="mb-4">
             <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="email">
               User's Email
@@ -84,6 +92,7 @@ const CreateInterview: React.FC<CreateInterviewProps> = ({ apiUrl }) => {
               required
             />
           </div>
+          {/* Questions Input */}
           <div className="mb-6">
             <label className="block text-gray-700 text-sm font-bold mb-2" htmlFor="questions">
               Questions (one per line)
@@ -97,6 +106,7 @@ const CreateInterview: React.FC<CreateInterviewProps> = ({ apiUrl }) => {
               required
             />
           </div>
+          {/* Submit Button */}
           <div className="flex items-center justify-between">
             <button
               type="submit"

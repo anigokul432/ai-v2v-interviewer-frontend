@@ -10,8 +10,10 @@ interface SignInProps {
 const SignIn: React.FC<SignInProps> = ({ apiUrl }) => {
   const navigate = useNavigate();
 
+  // Handle successful Google OAuth response
   const handleSuccess = (response: CredentialResponse) => {
     if (response.credential) {
+      // Post the Google credential to the backend for authentication
       fetch(`${apiUrl}/auth/google`, {
         method: 'POST',
         headers: {
@@ -23,6 +25,7 @@ const SignIn: React.FC<SignInProps> = ({ apiUrl }) => {
       })
         .then((response) => response.json())
         .then((data) => {
+          // Store the received token in localStorage and navigate to the user dashboard
           localStorage.setItem('token', data.access_token);
           navigate('/user-dashboard');
         })
@@ -34,6 +37,7 @@ const SignIn: React.FC<SignInProps> = ({ apiUrl }) => {
     }
   };
 
+  // Handle errors during Google OAuth
   const handleError = () => {
     console.log('Google Login Error');
   };
@@ -41,13 +45,18 @@ const SignIn: React.FC<SignInProps> = ({ apiUrl }) => {
   return (
     <GoogleOAuthProvider clientId="342239470218-5kbiijcep7ghcgr7em0b6fs6vug90v04.apps.googleusercontent.com">
       <div className="min-h-screen bg-gradient-to-b from-blue-50 to-blue-100 flex flex-col">
+        {/* Navbar Component */}
         <Navbar />
+        
+        {/* Main Content Area */}
         <div className="flex flex-1 items-center justify-center p-8">
           <div className="bg-white p-10 rounded-lg shadow-lg w-full max-w-md text-center">
             <h1 className="text-4xl font-bold text-gray-800 mb-6">Sign In</h1>
             <p className="text-gray-600 mb-8">
               Access your dashboard and manage your interviews with ease.
             </p>
+            
+            {/* Google Login Button */}
             <div className="flex justify-center">
               <GoogleLogin
                 onSuccess={handleSuccess}

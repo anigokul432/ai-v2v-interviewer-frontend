@@ -1,40 +1,47 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
+// Define the props expected by the Interview component
 interface InterviewProps {
   apiUrl: string;
 }
 
+// Define the structure of the interview data
 interface InterviewData {
   id: string;
   title: string;
   questions: string[];
 }
 
+// Define the structure of the follow-up response from the API
 interface FollowUpResponse {
   followup_question: string;
 }
 
+// Define the structure of each conversation entry
 interface ConversationEntry {
   question: string;
   answer: string;
   timestamp: number;
 }
 
+// Constants for input validation
 const MAX_INPUT_LENGTH = 500; // Maximum allowed input length
-const VALID_CHARACTERS = /^[a-zA-Z0-9\s.,?!'"-]*$/; // Allow letters, numbers, and basic punctuation
+const VALID_CHARACTERS = /^[a-zA-Z0-9\s.,?!'"-]*$/; // Allowed characters in user input
 
+// Main Interview component
 const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { interview } = location.state as { interview: InterviewData } || {};
+  const { interview } = location.state as { interview: InterviewData } || {}; // Extract interview data from location state
   
+  // State variables for managing interview progress and conversation
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [conversation, setConversation] = useState<ConversationEntry[]>([]);
   const [userAnswer, setUserAnswer] = useState("");
   const [loading, setLoading] = useState(false);
   const [followUp, setFollowUp] = useState<string | null>(null);
-  const [followUpStage, setFollowUpStage] = useState(0); // 0: No follow-up, 1: First follow-up, 2: Second follow-up
+  const [followUpStage, setFollowUpStage] = useState(0); // Track follow-up question stages: 0: No follow-up, 1: First follow-up, 2: Second follow-up
   const [lastSpokenText, setLastSpokenText] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
@@ -45,11 +52,11 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
   const [revealedText, setRevealedText] = useState<string>("");
   const [revealIntervalId, setRevealIntervalId] = useState<NodeJS.Timeout | null>(null);
 
-  // Refs for media streams and recorder
+  // Refs for handling media streams and recording
   const audioRecorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
 
-  // Function to stop the ongoing TTS and text reveal
+  // Function to stop any ongoing text-to-speech and text reveal animations
   const stopSpeechAndReveal = () => {
     window.speechSynthesis.cancel(); // Stop any ongoing speech synthesis
     if (revealIntervalId) {
@@ -58,18 +65,18 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
     }
   };
 
-  // Function to handle text-to-speech with text reveal
+  // Function to handle text-to-speech with gradual text reveal
   const speakTextWithReveal = (text: string, callback?: () => void) => {
-    stopSpeechAndReveal(); // Ensure any ongoing TTS and reveal are stopped before starting a new one
+    stopSpeechAndReveal(); // Stop any ongoing TTS and reveal before starting a new one
     setRevealedText(""); // Reset revealed text
-    setLastSpokenText(text); // Set the last spoken text for reveal
+    setLastSpokenText(text); // Store the last spoken text for reference
 
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'en-US'; // Set language; adjust as needed
+    utterance.lang = 'en-US'; // Set language for speech synthesis
 
     let charIndex = 0;
 
-    // Reveal text gradually
+    // Gradually reveal text
     const intervalId = setInterval(() => {
       setRevealedText(text.slice(0, charIndex));
       charIndex += 1;
@@ -77,10 +84,11 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
         clearInterval(intervalId);
         setRevealIntervalId(null);
       }
-    }, 50); // Adjust speed of text reveal by changing the interval
+    }, 50); // Speed of text reveal can be adjusted by changing the interval
 
-    setRevealIntervalId(intervalId); // Store the interval ID
+    setRevealIntervalId(intervalId); // Store the interval ID for potential future use
 
+    // Trigger callback when TTS ends
     if (callback) {
       utterance.onend = () => {
         clearInterval(intervalId);
@@ -89,14 +97,14 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
       };
     }
 
-    window.speechSynthesis.speak(utterance);
+    window.speechSynthesis.speak(utterance); // Start speech synthesis
   };
 
-  // Fetch GPT intro and outro on mount
+  // Fetch introductory and outro text from the API on component mount
   useEffect(() => {
     const fetchIntroAndOutro = async () => {
       try {
-        // Fetch Intro
+        // Fetch the introduction
         const introResponse = await fetch(`${apiUrl}/interview/gpt-intro?interview_id=${interview.id}`, {
           method: 'POST',
           headers: {
@@ -108,16 +116,16 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
         const introData = await introResponse.json();
         if (introResponse.ok) {
           setIntro(introData.introduction);
-          // Speak the introduction and after it finishes, trigger the first question
+          // Speak the introduction and then trigger the first question
           speakTextWithReveal(introData.introduction, () => {
-            setIntroFinished(true); // Mark intro as finished
-            askFirstQuestion(); // Speak the first question after the intro
+            setIntroFinished(true); // Mark the intro as finished
+            askFirstQuestion(); // Trigger the first interview question
           });
         } else {
           console.error("Error fetching GPT intro:", introData);
         }
 
-        // Fetch Outro
+        // Fetch the outro
         const outroResponse = await fetch(`${apiUrl}/interview/gpt-outro?interview_id=${interview.id}`, {
           method: 'POST',
           headers: {
@@ -137,23 +145,25 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
       }
     };
 
-    fetchIntroAndOutro();
-    initRecognition();
-    startRecordingAudio(); // Start recording audio when the component mounts
+    fetchIntroAndOutro(); // Trigger intro and outro fetch
+    initRecognition(); // Initialize speech recognition
+    startRecordingAudio(); // Start recording audio when component mounts
 
+    // Clean up function to stop recording when component unmounts
     return () => {
-      stopRecordingAudio(); // Stop recording when the component unmounts
+      stopRecordingAudio();
     };
   }, [apiUrl, interview.id]);
 
   // Function to initialize the Speech Recognition API
   const initRecognition = () => {
     if ('webkitSpeechRecognition' in window) {
+      // Use webkitSpeechRecognition if available
       const recognition = new webkitSpeechRecognition();
       recognition.lang = 'en-US';
       recognition.interimResults = true; // Enable interim results for real-time updates
       recognition.maxAlternatives = 1;
-      recognition.continuous = true; // Keep the recognition running until manually stopped
+      recognition.continuous = true; // Keep recognition running until manually stopped
 
       recognition.onresult = (event: SpeechRecognitionEvent) => {
         let transcript = Array.from(event.results)
@@ -161,7 +171,7 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
           .join(' ');
 
         transcript = validateInput(transcript); // Validate and sanitize the input
-        setUserAnswer(transcript); // Set the captured speech as the user's answer in real-time
+        setUserAnswer(transcript); // Update user answer in real-time
       };
 
       recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
@@ -170,27 +180,28 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
 
       recognition.onend = () => {
         if (isRecording) {
-          recognition.start(); // Restart if it stops automatically
+          recognition.start(); // Restart recognition if it stops automatically
         } else {
           setIsRecording(false); // Update recording state
         }
       };
 
-      setRecognition(recognition);
+      setRecognition(recognition); // Set recognition state
     } else if ('SpeechRecognition' in window) {
+      // Fallback for non-webkit browsers
       const recognition = new SpeechRecognition();
       recognition.lang = 'en-US';
-      recognition.interimResults = true; // Enable interim results for real-time updates
+      recognition.interimResults = true;
       recognition.maxAlternatives = 1;
-      recognition.continuous = true; // Keep the recognition running until manually stopped
+      recognition.continuous = true;
 
       recognition.onresult = (event: SpeechRecognitionEvent) => {
         let transcript = Array.from(event.results)
           .map(result => result[0].transcript)
           .join(' ');
 
-        transcript = validateInput(transcript); // Validate and sanitize the input
-        setUserAnswer(transcript); // Set the captured speech as the user's answer in real-time
+        transcript = validateInput(transcript);
+        setUserAnswer(transcript);
       };
 
       recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
@@ -199,9 +210,9 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
 
       recognition.onend = () => {
         if (isRecording) {
-          recognition.start(); // Restart if it stops automatically
+          recognition.start();
         } else {
-          setIsRecording(false); // Update recording state
+          setIsRecording(false);
         }
       };
 
@@ -211,7 +222,7 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
     }
   };
 
-  // Validate and sanitize user input
+  // Function to validate and sanitize user input
   const validateInput = (input: string): string => {
     // Limit input length
     let sanitizedInput = input.slice(0, MAX_INPUT_LENGTH);
@@ -222,10 +233,10 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
     return sanitizedInput;
   };
 
-  // Start recording audio streams
+  // Function to start recording audio streams
   const startRecordingAudio = async () => {
     try {
-        // Capture the microphone audio
+        // Capture microphone audio
         const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
         
         // Attempt to capture system audio
@@ -257,7 +268,7 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
             console.warn("No system audio track available.");
         }
 
-        // Combined stream with mic (and optionally desktop audio)
+        // Combine mic and system audio (if available)
         const combinedStream = destination.stream;
 
         // Record the combined stream
@@ -265,7 +276,7 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
 
         audioRecorderRef.current.ondataavailable = (event) => {
             if (event.data.size > 0) {
-                recordedChunksRef.current.push(event.data);
+                recordedChunksRef.current.push(event.data); // Save recorded data chunks
             }
         };
 
@@ -276,8 +287,7 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
     }
 };
 
-
-  // Stop recording audio streams
+  // Function to stop recording audio streams
   const stopRecordingAudio = () => {
     if (audioRecorderRef.current) {
       audioRecorderRef.current.stop();
@@ -285,7 +295,7 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
     }
   };
 
-  // Save the recording
+  // Function to save the recording to a file
   const saveRecording = () => {
     const blob = new Blob(recordedChunksRef.current, { type: 'audio/webm' });
     const url = URL.createObjectURL(blob);
@@ -298,44 +308,44 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
     window.URL.revokeObjectURL(url);
   };
 
-  // Start recording
+  // Function to start speech recognition recording
   const startRecording = () => {
     stopSpeechAndReveal(); // Stop any ongoing TTS and text reveal
     if (recognition && !isRecording) {
       recognition.start();
       setIsRecording(true);
-      setUserAnswer(""); // Clear previous answer
+      setUserAnswer(""); // Clear the previous answer
     }
   };
 
-  // Stop recording
+  // Function to stop speech recognition recording
   const stopRecording = () => {
     if (recognition && isRecording) {
       recognition.stop();
       setIsRecording(false);
     }
-    handleNextQuestion();
+    handleNextQuestion(); // Proceed to the next question after stopping recording
   };
 
-  // Function to handle the next question and TTS
+  // Function to handle moving to the next question or follow-up
   const handleNextQuestion = async () => {
     const question = followUp || interview.questions[currentQuestionIndex];
 
-    // Store the current question, user's answer, and timestamp in the conversation array
+    // Save the current question, answer, and timestamp to conversation
     const timestamp = Date.now();
     const newEntry: ConversationEntry = { question, answer: userAnswer, timestamp };
-    setConversation([...conversation, newEntry]); // Include timestamp
+    setConversation([...conversation, newEntry]);
 
     setUserAnswer("");
     setLoading(true);
 
-    // Clear the intro after the first question is answered
+    // Clear the intro after the first question
     if (currentQuestionIndex === 0) {
         setIntro("");
     }
 
     if (followUpStage === 0) {
-      // First follow-up
+      // Fetch the first follow-up question
       const response = await fetch(`${apiUrl}/interview/gpt-followup`, {
         method: 'POST',
         headers: {
@@ -360,7 +370,7 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
         console.error("Error fetching GPT follow-up:", data);
       }
     } else if (followUpStage === 1) {
-      // Second follow-up
+      // Fetch the second follow-up question
       const response = await fetch(`${apiUrl}/interview/gpt-followup`, {
         method: 'POST',
         headers: {
@@ -396,15 +406,15 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
         setLastSpokenText(nextQuestion); // Update the last spoken text
         speakTextWithReveal(nextQuestion); // Speak the next question with reveal effect
       } else {
-        // No more questions, time to show the outro
+        // No more questions, show the outro
         setShowOutro(true);
         speakTextWithReveal(outro, handleSubmitInterview); // Speak the outro and automatically submit the interview
       }
     }
   };
 
+  // Function to submit the conversation and save the recording
   const handleSubmitInterview = async () => {
-    // Stop the recording immediately and save the data
     stopRecordingAudio(); // Stop the recording
     const recordingBlob = new Blob(recordedChunksRef.current, { type: 'audio/webm' }); // Create a blob from the recorded chunks
     
@@ -418,7 +428,7 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
         reader.readAsDataURL(recordingBlob);
     });
 
-    // Prepare the conversation in the format expected by the backend
+    // Prepare the conversation data
     const formattedConversation = conversation.map(entry => [entry.question, entry.answer, entry.timestamp]);
 
     // Prepare the payload with the recording as a Base64 string
@@ -452,8 +462,6 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
     }
 };
 
-
-
   // Function to ask the first question after the intro is spoken
   const askFirstQuestion = () => {
     const firstQuestion = interview.questions[0];
@@ -475,10 +483,12 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
           {interview?.title || 'Interview'}
         </h1>
 
+        {/* Display the introduction text */}
         {lastSpokenText && !introFinished && (
           <p className="text-lg text-gray-700 mb-4">{revealedText}</p> // Display revealed intro
         )}
 
+        {/* Display the current question and input field */}
         {introFinished && (currentQuestionIndex < interview.questions.length || followUp) && !loading && (
           <>
             <p className="text-lg text-gray-700 mb-4">
@@ -511,8 +521,10 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
           </>
         )}
 
+        {/* Display loading message when fetching the next question */}
         {loading && <p className="text-lg text-gray-600 mt-4 text-center">Loading next question...</p>}
 
+        {/* Display the outro text and navigation button */}
         {showOutro && (
           <>
             <p className="text-lg text-gray-700 mt-4">{revealedText}</p> {/* Display revealed outro */}
@@ -525,6 +537,7 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
           </>
         )}
 
+        {/* Display end interview button */}
         {!showOutro && introFinished && (
           <button
             onClick={endInterview}
