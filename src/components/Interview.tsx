@@ -24,7 +24,7 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
   const [conversation, setConversation] = useState<[string, string][]>([]);
   const [userAnswer, setUserAnswer] = useState("");
   const [loading, setLoading] = useState(false);
-  const [followUp, setFollowUp] =useState<string | null>(null);
+  const [followUp, setFollowUp] = useState<string | null>(null);
   const [followUpStage, setFollowUpStage] = useState(0); // 0: No follow-up, 1: First follow-up, 2: Second follow-up
   const [lastSpokenText, setLastSpokenText] = useState<string | null>(null); // Track the last spoken text (intro/question/outro)
   const [isRecording, setIsRecording] = useState(false); // Track if recording is ongoing
@@ -34,9 +34,20 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
   const [showOutro, setShowOutro] = useState<boolean>(false); // Track if outro is shown
   const [introFinished, setIntroFinished] = useState<boolean>(false); // Track if intro has finished
   const [revealedText, setRevealedText] = useState<string>(""); // Track the currently revealed text
+  const [revealIntervalId, setRevealIntervalId] = useState<NodeJS.Timeout | null>(null); // Store the interval ID for text reveal
+
+  // Function to stop the ongoing TTS and text reveal
+  const stopSpeechAndReveal = () => {
+    window.speechSynthesis.cancel(); // Stop any ongoing speech synthesis
+    if (revealIntervalId) {
+      clearInterval(revealIntervalId); // Clear the text reveal interval
+      setRevealIntervalId(null);
+    }
+  };
 
   // Function to handle text-to-speech with text reveal
   const speakTextWithReveal = (text: string, callback?: () => void) => {
+    stopSpeechAndReveal(); // Ensure any ongoing TTS and reveal are stopped before starting a new one
     setRevealedText(""); // Reset revealed text
     setLastSpokenText(text); // Set the last spoken text for reveal
 
@@ -46,17 +57,21 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
     let charIndex = 0;
 
     // Reveal text gradually
-    const revealInterval = setInterval(() => {
+    const intervalId = setInterval(() => {
       setRevealedText(text.slice(0, charIndex));
       charIndex += 1;
       if (charIndex > text.length) {
-        clearInterval(revealInterval);
+        clearInterval(intervalId);
+        setRevealIntervalId(null);
       }
     }, 50); // Adjust speed of text reveal by changing the interval
 
+    setRevealIntervalId(intervalId); // Store the interval ID
+
     if (callback) {
       utterance.onend = () => {
-        clearInterval(revealInterval);
+        clearInterval(intervalId);
+        setRevealIntervalId(null);
         callback();
       };
     }
@@ -176,6 +191,7 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
 
   // Start recording
   const startRecording = () => {
+    stopSpeechAndReveal(); // Stop any ongoing TTS and text reveal
     if (recognition && !isRecording) {
       recognition.start();
       setIsRecording(true);
