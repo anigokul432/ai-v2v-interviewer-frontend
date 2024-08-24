@@ -1,6 +1,27 @@
 # Hire AI
 
+LINK: https://anigokul432.github.io/ai-v2v-interviewer-frontend/
+
 Hire AI is an AI-powered interview platform that facilitates interactive, AI-driven interviews, allowing enterprises to create, manage, and analyze interviews while providing candidates with a personalized dashboard to track their progress. The platform uses modern web technologies to deliver a seamless and interactive experience for both enterprises and candidates.
+
+### Workflow
+
+- **User:**
+  - Users must already have an account with HireAI. They can easily create one by signing up with Google on the Sign-In page.
+  - Once registered, users can log in to access their dashboard, where they will see any interviews assigned to them by an enterprise.
+  - After completing an interview, users' performance is tracked, and the results are available to the enterprise.
+
+- **Enterprise:**
+  - Enterprises can create interviews by entering the candidate's email in the interview creation form. This assigns the interview to the user associated with that email.
+  - Enterprises can view and manage all interviews through the Enterprise Dashboard and track the progress and outcomes via the Analytics page.
+  - Once an interview is completed by a candidate, the enterprise can see the score received by the candidate in the Analytics section.
+
+### Workflow for Testing
+1. User Sign in (create account) through sign in page.
+2. Go Home and login as enterprise.
+3. Create an interview and assign it to the email you just signed up with.
+4. Go through the interview.
+5. Go to Enterprise Dashboard -> View Analytics to view your score.
 
 ### Key Features:
 
@@ -44,10 +65,10 @@ Hire AI is an AI-powered interview platform that facilitates interactive, AI-dri
 - **Backend:** Hosted on **Azure** via Azure Web Apps for scalable, secure, and reliable service delivery.
 - **Frontend:** Deployed on **GitHub Pages** for easy access and reliability.
 
-## Potential Enhancements with More Time/Resources:
+### Potential Enhancements with More Time/Resources:
 
-1. **Comprehensive Testing:** 
-   - Add end-to-end, unit, and integration tests to improve reliability.
+1. **Enterprise Authentication:** 
+   - Currently only users are authenticated and the "Enterprise" is anyone who visits the enterprise dashboard link. For actual production, the enterprise users need to be authenticated.
 
 2. **Scalability Improvements:** 
    - Optimize backend to handle higher traffic and consider serverless functions for auto-scaling.
