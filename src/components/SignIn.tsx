@@ -1,6 +1,7 @@
 import React from 'react';
 import { GoogleOAuthProvider, GoogleLogin, CredentialResponse } from '@react-oauth/google';
 import { useNavigate } from 'react-router-dom';
+import Navbar from './Navbar';
 
 interface SignInProps {
   apiUrl: string;
@@ -10,7 +11,6 @@ const SignIn: React.FC<SignInProps> = ({ apiUrl }) => {
   const navigate = useNavigate();
 
   const handleSuccess = (response: CredentialResponse) => {
-    console.log('Google Login Success:', response);
     if (response.credential) {
       fetch(`${apiUrl}/auth/google`, {
         method: 'POST',
@@ -34,16 +34,32 @@ const SignIn: React.FC<SignInProps> = ({ apiUrl }) => {
     }
   };
 
-  // Adjusted to match the expected type
   const handleError = () => {
     console.log('Google Login Error');
   };
 
   return (
     <GoogleOAuthProvider clientId="342239470218-5kbiijcep7ghcgr7em0b6fs6vug90v04.apps.googleusercontent.com">
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-100">
-        <h1 className="text-3xl font-semibold text-gray-800 mb-6">Sign In</h1>
-        <GoogleLogin onSuccess={handleSuccess} onError={handleError} />
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-blue-100 flex flex-col">
+        <Navbar />
+        <div className="flex flex-1 items-center justify-center p-8">
+          <div className="bg-white p-10 rounded-lg shadow-lg w-full max-w-md text-center">
+            <h1 className="text-4xl font-bold text-gray-800 mb-6">Sign In</h1>
+            <p className="text-gray-600 mb-8">
+              Access your dashboard and manage your interviews with ease.
+            </p>
+            <div className="flex justify-center">
+              <GoogleLogin
+                onSuccess={handleSuccess}
+                onError={handleError}
+                size="large"
+                theme="outline"
+                shape="rectangular"
+                type="standard"
+              />
+            </div>
+          </div>
+        </div>
       </div>
     </GoogleOAuthProvider>
   );
