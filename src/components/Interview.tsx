@@ -29,13 +29,71 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
   const [lastSpokenQuestion, setLastSpokenQuestion] = useState<string | null>(null); // Track the last spoken question
   const [isRecording, setIsRecording] = useState(false); // Track if recording is ongoing
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
+  const [intro, setIntro] = useState<string>(""); // Store GPT intro
+  const [outro, setOutro] = useState<string>(""); // Store GPT outro
+  const [showOutro, setShowOutro] = useState<boolean>(false); // Track if outro is shown
+  const [introFinished, setIntroFinished] = useState<boolean>(false); // Track if intro has finished
 
   // Function to handle text-to-speech
-  const speakText = (text: string) => {
+  const speakText = (text: string, callback?: () => void) => {
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'en-US'; // Set language; adjust as needed
+
+    if (callback) {
+      utterance.onend = callback;
+    }
+
     window.speechSynthesis.speak(utterance);
   };
+
+  // Fetch GPT intro and outro on mount
+  useEffect(() => {
+    const fetchIntroAndOutro = async () => {
+      try {
+        // Fetch Intro
+        const introResponse = await fetch(`${apiUrl}/interview/gpt-intro?interview_id=${interview.id}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        const introData = await introResponse.json();
+        if (introResponse.ok) {
+          setIntro(introData.introduction);
+          // Speak the introduction and after it finishes, trigger the first question
+          speakText(introData.introduction, () => {
+            setIntroFinished(true); // Mark intro as finished
+            askFirstQuestion(); // Speak the first question after the intro
+          });
+        } else {
+          console.error("Error fetching GPT intro:", introData);
+        }
+
+        // Fetch Outro
+        const outroResponse = await fetch(`${apiUrl}/interview/gpt-outro?interview_id=${interview.id}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        const outroData = await outroResponse.json();
+        if (outroResponse.ok) {
+          setOutro(outroData.outro);
+        } else {
+          console.error("Error fetching GPT outro:", outroData);
+        }
+      } catch (error) {
+        console.error("Error fetching GPT intro/outro:", error);
+      }
+    };
+
+    fetchIntroAndOutro();
+    initRecognition();
+  }, [apiUrl, interview.id]);
 
   // Function to initialize the Speech Recognition API
   const initRecognition = () => {
@@ -113,6 +171,7 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
       recognition.stop();
       setIsRecording(false);
     }
+    handleNextQuestion();
   };
 
   // Function to handle the next question and TTS
@@ -123,6 +182,11 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
     setConversation([...conversation, [question, userAnswer]]);
     setUserAnswer("");
     setLoading(true);
+
+    // Clear the intro after the first question is answered
+    if (currentQuestionIndex === 0) {
+      setIntro("");
+    }
 
     if (followUpStage === 0) {
       // First follow-up
@@ -145,6 +209,7 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
         // Set the first follow-up question
         setFollowUp(data.followup_question);
         setFollowUpStage(1);
+        speakText(data.followup_question); // Speak the follow-up question
       } else {
         console.error("Error fetching GPT follow-up:", data);
       }
@@ -169,6 +234,7 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
         // Set the second follow-up question
         setFollowUp(data.followup_question);
         setFollowUpStage(2);
+        speakText(data.followup_question); // Speak the follow-up question
       } else {
         console.error("Error fetching GPT follow-up:", data);
       }
@@ -178,6 +244,16 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
       setFollowUpStage(0);
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setLoading(false);
+
+      if (currentQuestionIndex + 1 < interview.questions.length) {
+        const nextQuestion = interview.questions[currentQuestionIndex + 1];
+        setLastSpokenQuestion(nextQuestion); // Update the last spoken question
+        speakText(nextQuestion); // Speak the next question
+      } else {
+        // No more questions, time to show the outro
+        setShowOutro(true);
+        speakText(outro, handleSubmitInterview); // Speak the outro and automatically submit the interview
+      }
     }
   };
 
@@ -201,7 +277,7 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
   
       if (response.ok) {
         console.log("Conversation submitted successfully:", data);
-        navigate('/user-dashboard');
+        navigate('/user-dashboard'); // Redirect to the user dashboard
       } else {
         console.error("Error submitting conversation:", data);
       }
@@ -210,22 +286,14 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
     }
   };
 
-  // Use effect to trigger TTS for the initial question or follow-up question
-  useEffect(() => {
-    const question = followUp || interview?.questions[currentQuestionIndex];
-    
-    // Only speak if the question has changed
-    if (question && question !== lastSpokenQuestion) {
-      setLastSpokenQuestion(question); // Update the last spoken question
-      // Delay TTS slightly to ensure state has settled
-      setTimeout(() => speakText(question), 100); // 100ms delay
+  // Function to ask the first question after the intro is spoken
+  const askFirstQuestion = () => {
+    const firstQuestion = interview.questions[0];
+    if (firstQuestion) {
+      setLastSpokenQuestion(firstQuestion); // Update the last spoken question
+      speakText(firstQuestion); // Speak the first question
     }
-  }, [followUp, currentQuestionIndex]);
-
-  // Initialize recognition on mount
-  useEffect(() => {
-    initRecognition();
-  }, []);
+  };
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-r from-blue-50 to-blue-100">
@@ -234,7 +302,9 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
           {interview?.title || 'Interview'}
         </h1>
 
-        {(currentQuestionIndex < interview.questions.length || followUp) && !loading && (
+        {intro && <p className="text-lg text-gray-700 mb-4">{intro}</p>} {/* Display intro message */}
+
+        {introFinished && (currentQuestionIndex < interview.questions.length || followUp) && !loading && (
           <>
             <p className="text-lg text-gray-700 mb-4">
               <span className="font-semibold text-blue-600">Q:</span> {followUp || interview.questions[currentQuestionIndex]}
@@ -263,25 +333,21 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
                 End Response
               </button>
             </div>
-            <button
-              onClick={handleNextQuestion}
-              className="w-full mt-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-              disabled={isRecording} // Disable "Next" if recording is ongoing
-            >
-              {followUpStage === 0 ? "Submit Answer" : "Next Follow-Up"}
-            </button>
           </>
         )}
 
         {loading && <p className="text-lg text-gray-600 mt-4 text-center">Loading next question...</p>}
 
-        {currentQuestionIndex >= interview.questions.length && !followUp && (
-          <button
-            onClick={handleSubmitInterview}
-            className="w-full mt-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-          >
-            Submit Interview
-          </button>
+        {showOutro && (
+          <>
+            <p className="text-lg text-gray-700 mt-4">{outro}</p> {/* Display outro message */}
+            <button
+              onClick={() => navigate('/user-dashboard')} // Redirect to home after interview is submitted
+              className="w-full mt-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+            >
+              Go Home
+            </button>
+          </>
         )}
       </div>
     </div>
