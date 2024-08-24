@@ -1,36 +1,38 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import Navbar from '../../components/Navbar';
-import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 interface EnterpriseDashboardProps {
-  username: string;
-  handleLogout: () => void;
+    username: string;
+    handleLogout: () => void;
 }
 
 const EnterpriseDashboard: React.FC<EnterpriseDashboardProps> = ({ username, handleLogout }) => {
-    console.log('Enterprise component re-rendered');
-    const [funFact, setFunFact] = useState<string>('');
-
-    useEffect(() => {
-        const fetchFunFact = async () => {
-            try {
-                const response = await axios.get<{ fun_fact: string }>('http://localhost:8000/fun-fact');
-                setFunFact(response.data.fun_fact);
-            } catch (error) {
-                console.error("Error fetching fun fact:", error);
-            }
-        };
-
-        fetchFunFact();
-    }, []);
+    const navigate = useNavigate();
 
     return (
         <div className="min-h-screen bg-gradient-to-b from-gray-900 to-gray-800">
             <Navbar username={username} handleLogout={handleLogout} />
             <div className="container mx-auto py-20 px-8">
                 <h1 className="text-3xl font-bold text-white">Enterprise Dashboard</h1>
-                <p className="text-gray-300">Welcome, {username}! Here you can create, issue and manage interviews!</p>
-                <p className="mt-10 text-lg text-gray-300">Fun Fact: {funFact}</p>
+                <p className="text-gray-300">Welcome, {username}! This is your enterprise dashboard.</p>
+
+                <div className="mt-10 grid grid-cols-1 sm:grid-cols-2 gap-8">
+                    <div 
+                        className="bg-gray-800 p-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-transform duration-300 ease-in-out cursor-pointer"
+                        onClick={() => navigate('/dashboard/enterprise/create-interview')}
+                    >
+                        <h2 className="text-xl font-bold text-white">Create Interview</h2>
+                        <p className="text-gray-400 mt-4">Start a new interview for candidates.</p>
+                    </div>
+                    <div 
+                        className="bg-gray-800 p-6 rounded-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition-transform duration-300 ease-in-out cursor-pointer"
+                        onClick={() => navigate('/dashboard/enterprise/manage-interviews')}
+                    >
+                        <h2 className="text-xl font-bold text-white">Manage Interviews</h2>
+                        <p className="text-gray-400 mt-4">View, edit, and delete interviews.</p>
+                    </div>
+                </div>
             </div>
         </div>
     );
