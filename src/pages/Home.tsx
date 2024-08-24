@@ -2,7 +2,13 @@ import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 
-const Home = ({ username, role, handleLogout }) => {
+interface HomeProps {
+  username: string;
+  role: string;
+  handleLogout: () => void;
+}
+
+const Home: React.FC<HomeProps> = ({ username, role, handleLogout }) => {
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -20,9 +26,10 @@ const Home = ({ username, role, handleLogout }) => {
       <Navbar />
       <div className="text-center animate-fadeInUp">
         {/* Main Content */}
-        <h1 className="text-5xl font-bold text-white mb-6">Welcome!</h1>
-        <p className="text-lg text-gray-300 mb-10">This is a basic template of a full-stack app.</p>
-        <div className="space-y-4">
+        <h1 className="text-6xl font-semibold text-white mb-6">Speed up hiring!</h1>
+        <p className="text-2xl text-gray-300">Screen more applicants and make informed</p>
+        <p className="text-2xl text-gray-300">decisions using your AI-powered recruiter</p>
+        <div className="space-y-4 mt-10">
           <button
             onClick={() => navigate('/login')}
             className="block w-64 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg text-xl mx-auto transition duration-300 ease-in-out"

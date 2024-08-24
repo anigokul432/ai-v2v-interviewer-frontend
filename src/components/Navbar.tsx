@@ -2,14 +2,19 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CgProfile, CgLogOut } from "react-icons/cg";
 
-const Navbar = ({ username, handleLogout }) => {
+interface NavbarProps {
+    username?: string;
+    handleLogout?: () => void;
+}
+
+const Navbar: React.FC<NavbarProps> = ({ username, handleLogout }) => {
     const navigate = useNavigate();
 
     return (
         <header className="bg-transparent text-white fixed w-full top-0 left-0 z-10">
             <div className="container mx-auto flex justify-between items-center py-4 px-8">
                 <div className="text-2xl font-bold cursor-pointer" onClick={() => navigate('/')}>
-                    LOGO
+                    HireTalk
                 </div>
 
                 <nav className="space-x-8">

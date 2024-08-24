@@ -1,15 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Navbar from '../components/Navbar';
 import api from '../services/api';
 
-const Register = () => {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-    const [role, setRole] = useState('user');
+const Register: React.FC = () => {
+    const [username, setUsername] = useState<string>('');
+    const [password, setPassword] = useState<string>('');
+    const [role, setRole] = useState<string>('user');
     const navigate = useNavigate();
 
-    const handleSubmit = async (e) => {
+    const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         try {
             if (role === 'user') {
@@ -45,7 +45,7 @@ const Register = () => {
                         className="w-full p-2 mb-4 border rounded"
                     />
                     <select value={role} onChange={(e) => setRole(e.target.value)} className="w-full p-2 mb-4 border rounded">
-                        <option value="user">User</option>
+                        <option value="user">Candidate</option>
                         <option value="enterprise">Enterprise</option>
                     </select>
                     <button type="submit" className="w-full bg-blue-600 hover:bg-blue-700 text-white p-2 rounded transition duration-300 ease-in-out">Register</button>

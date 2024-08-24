@@ -1,7 +1,14 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 
-const ProtectedRoute = ({ isAuthenticated, role, requiredRole, children }) => {
+interface ProtectedRouteProps {
+    isAuthenticated: boolean;
+    role: string;
+    requiredRole: string;
+    children: React.ReactNode;
+}
+
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ isAuthenticated, role, requiredRole, children }) => {
     if (!isAuthenticated) {
         return <Navigate to="/" />;
     }
@@ -15,7 +22,7 @@ const ProtectedRoute = ({ isAuthenticated, role, requiredRole, children }) => {
         }
     }
 
-    return children;
+    return <>{children}</>;
 };
 
 export default ProtectedRoute;
