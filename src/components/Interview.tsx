@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 interface InterviewProps {
@@ -26,14 +26,167 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
   const [loading, setLoading] = useState(false);
   const [followUp, setFollowUp] = useState<string | null>(null);
   const [followUpStage, setFollowUpStage] = useState(0); // 0: No follow-up, 1: First follow-up, 2: Second follow-up
+  const [lastSpokenQuestion, setLastSpokenQuestion] = useState<string | null>(null); // Track the last spoken question
+  const [isRecording, setIsRecording] = useState(false); // Track if recording is ongoing
+  const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
+  const [intro, setIntro] = useState<string>(""); // Store GPT intro
+  const [outro, setOutro] = useState<string>(""); // Store GPT outro
+  const [showOutro, setShowOutro] = useState<boolean>(false); // Track if outro is shown
+  const [introFinished, setIntroFinished] = useState<boolean>(false); // Track if intro has finished
 
+  // Function to handle text-to-speech
+  const speakText = (text: string, callback?: () => void) => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US'; // Set language; adjust as needed
+
+    if (callback) {
+      utterance.onend = callback;
+    }
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // Fetch GPT intro and outro on mount
+  useEffect(() => {
+    const fetchIntroAndOutro = async () => {
+      try {
+        // Fetch Intro
+        const introResponse = await fetch(`${apiUrl}/interview/gpt-intro?interview_id=${interview.id}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        const introData = await introResponse.json();
+        if (introResponse.ok) {
+          setIntro(introData.introduction);
+          // Speak the introduction and after it finishes, trigger the first question
+          speakText(introData.introduction, () => {
+            setIntroFinished(true); // Mark intro as finished
+            askFirstQuestion(); // Speak the first question after the intro
+          });
+        } else {
+          console.error("Error fetching GPT intro:", introData);
+        }
+
+        // Fetch Outro
+        const outroResponse = await fetch(`${apiUrl}/interview/gpt-outro?interview_id=${interview.id}`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        const outroData = await outroResponse.json();
+        if (outroResponse.ok) {
+          setOutro(outroData.outro);
+        } else {
+          console.error("Error fetching GPT outro:", outroData);
+        }
+      } catch (error) {
+        console.error("Error fetching GPT intro/outro:", error);
+      }
+    };
+
+    fetchIntroAndOutro();
+    initRecognition();
+  }, [apiUrl, interview.id]);
+
+  // Function to initialize the Speech Recognition API
+  const initRecognition = () => {
+    if ('webkitSpeechRecognition' in window) {
+      const recognition = new webkitSpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = true; // Enable interim results for real-time updates
+      recognition.maxAlternatives = 1;
+      recognition.continuous = true; // Keep the recognition running until manually stopped
+
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
+        const transcript = Array.from(event.results)
+          .map(result => result[0].transcript)
+          .join(' ');
+        setUserAnswer(transcript); // Set the captured speech as the user's answer in real-time
+      };
+
+      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+        console.error("Speech Recognition Error:", event.error);
+      };
+
+      recognition.onend = () => {
+        if (isRecording) {
+          recognition.start(); // Restart if it stops automatically
+        } else {
+          setIsRecording(false); // Update recording state
+        }
+      };
+
+      setRecognition(recognition);
+    } else if ('SpeechRecognition' in window) {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = true; // Enable interim results for real-time updates
+      recognition.maxAlternatives = 1;
+      recognition.continuous = true; // Keep the recognition running until manually stopped
+
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
+        const transcript = Array.from(event.results)
+          .map(result => result[0].transcript)
+          .join(' ');
+        setUserAnswer(transcript); // Set the captured speech as the user's answer in real-time
+      };
+
+      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+        console.error("Speech Recognition Error:", event.error);
+      };
+
+      recognition.onend = () => {
+        if (isRecording) {
+          recognition.start(); // Restart if it stops automatically
+        } else {
+          setIsRecording(false); // Update recording state
+        }
+      };
+
+      setRecognition(recognition);
+    } else {
+      alert("Speech Recognition API not supported by this browser. Please use Google Chrome or another supported browser.");
+    }
+  };
+
+  // Start recording
+  const startRecording = () => {
+    if (recognition && !isRecording) {
+      recognition.start();
+      setIsRecording(true);
+      setUserAnswer(""); // Clear previous answer
+    }
+  };
+
+  // Stop recording
+  const stopRecording = () => {
+    if (recognition && isRecording) {
+      recognition.stop();
+      setIsRecording(false);
+    }
+    handleNextQuestion();
+  };
+
+  // Function to handle the next question and TTS
   const handleNextQuestion = async () => {
     const question = followUp || interview.questions[currentQuestionIndex];
-    
+
     // Store the current question and user's answer in the conversation array
     setConversation([...conversation, [question, userAnswer]]);
     setUserAnswer("");
     setLoading(true);
+
+    // Clear the intro after the first question is answered
+    if (currentQuestionIndex === 0) {
+      setIntro("");
+    }
 
     if (followUpStage === 0) {
       // First follow-up
@@ -56,6 +209,7 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
         // Set the first follow-up question
         setFollowUp(data.followup_question);
         setFollowUpStage(1);
+        speakText(data.followup_question); // Speak the follow-up question
       } else {
         console.error("Error fetching GPT follow-up:", data);
       }
@@ -80,6 +234,7 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
         // Set the second follow-up question
         setFollowUp(data.followup_question);
         setFollowUpStage(2);
+        speakText(data.followup_question); // Speak the follow-up question
       } else {
         console.error("Error fetching GPT follow-up:", data);
       }
@@ -89,6 +244,16 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
       setFollowUpStage(0);
       setCurrentQuestionIndex(currentQuestionIndex + 1);
       setLoading(false);
+
+      if (currentQuestionIndex + 1 < interview.questions.length) {
+        const nextQuestion = interview.questions[currentQuestionIndex + 1];
+        setLastSpokenQuestion(nextQuestion); // Update the last spoken question
+        speakText(nextQuestion); // Speak the next question
+      } else {
+        // No more questions, time to show the outro
+        setShowOutro(true);
+        speakText(outro, handleSubmitInterview); // Speak the outro and automatically submit the interview
+      }
     }
   };
 
@@ -112,12 +277,21 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
   
       if (response.ok) {
         console.log("Conversation submitted successfully:", data);
-        navigate('/user-dashboard');
+        navigate('/user-dashboard'); // Redirect to the user dashboard
       } else {
         console.error("Error submitting conversation:", data);
       }
     } catch (error) {
       console.error("Error submitting conversation:", error);
+    }
+  };
+
+  // Function to ask the first question after the intro is spoken
+  const askFirstQuestion = () => {
+    const firstQuestion = interview.questions[0];
+    if (firstQuestion) {
+      setLastSpokenQuestion(firstQuestion); // Update the last spoken question
+      speakText(firstQuestion); // Speak the first question
     }
   };
 
@@ -128,7 +302,9 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
           {interview?.title || 'Interview'}
         </h1>
 
-        {(currentQuestionIndex < interview.questions.length || followUp) && !loading && (
+        {intro && <p className="text-lg text-gray-700 mb-4">{intro}</p>} {/* Display intro message */}
+
+        {introFinished && (currentQuestionIndex < interview.questions.length || followUp) && !loading && (
           <>
             <p className="text-lg text-gray-700 mb-4">
               <span className="font-semibold text-blue-600">Q:</span> {followUp || interview.questions[currentQuestionIndex]}
@@ -138,26 +314,40 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
               onChange={(e) => setUserAnswer(e.target.value)}
               className="w-full p-4 text-lg border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-blue-500"
               rows={4}
-              placeholder="Type your answer here..."
+              placeholder="Your spoken response will appear here..."
+              readOnly
             />
-            <button
-              onClick={handleNextQuestion}
-              className="w-full mt-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            >
-              {followUpStage === 0 ? "Submit Answer" : "Next Follow-Up"}
-            </button>
+            <div className="flex justify-between mt-4">
+              <button
+                onClick={startRecording}
+                className={`w-1/3 py-3 ${isRecording ? 'bg-red-600' : 'bg-blue-600'} text-white font-semibold rounded-lg shadow-lg hover:${isRecording ? 'bg-red-700' : 'bg-blue-700'} focus:outline-none focus:ring-2 focus:ring-offset-2`}
+                disabled={isRecording}
+              >
+                {isRecording ? 'Recording...' : 'Start Response'}
+              </button>
+              <button
+                onClick={stopRecording}
+                className="w-1/3 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                disabled={!isRecording}
+              >
+                End Response
+              </button>
+            </div>
           </>
         )}
 
         {loading && <p className="text-lg text-gray-600 mt-4 text-center">Loading next question...</p>}
 
-        {currentQuestionIndex >= interview.questions.length && !followUp && (
-          <button
-            onClick={handleSubmitInterview}
-            className="w-full mt-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
-          >
-            Submit Interview
-          </button>
+        {showOutro && (
+          <>
+            <p className="text-lg text-gray-700 mt-4">{outro}</p> {/* Display outro message */}
+            <button
+              onClick={() => navigate('/user-dashboard')} // Redirect to home after interview is submitted
+              className="w-full mt-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+            >
+              Go Home
+            </button>
+          </>
         )}
       </div>
     </div>
