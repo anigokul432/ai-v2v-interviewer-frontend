@@ -1,13 +1,13 @@
 {
   "files": {
     "main.css": "/ai-v2v-interviewer-frontend/static/css/main.6f43e3c2.css",
-    "main.js": "/ai-v2v-interviewer-frontend/static/js/main.7b8c3fc1.js",
+    "main.js": "/ai-v2v-interviewer-frontend/static/js/main.a2db0a01.js",
     "index.html": "/ai-v2v-interviewer-frontend/index.html",
     "main.6f43e3c2.css.map": "/ai-v2v-interviewer-frontend/static/css/main.6f43e3c2.css.map",
-    "main.7b8c3fc1.js.map": "/ai-v2v-interviewer-frontend/static/js/main.7b8c3fc1.js.map"
+    "main.a2db0a01.js.map": "/ai-v2v-interviewer-frontend/static/js/main.a2db0a01.js.map"
   },
   "entrypoints": [
     "static/css/main.6f43e3c2.css",
-    "static/js/main.7b8c3fc1.js"
+    "static/js/main.a2db0a01.js"
   ]
 }
