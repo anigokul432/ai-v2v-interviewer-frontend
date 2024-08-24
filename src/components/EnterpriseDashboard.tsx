@@ -64,7 +64,7 @@ const EnterpriseDashboard: React.FC<EnterpriseDashboardProps> = ({ apiUrl }) => 
             </p>
             <button 
               className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg shadow-lg hover:bg-red-700"
-              onClick={handleManageInterviews}
+              // onClick={handleManageInterviews}
             >
               Manage
             </button>
