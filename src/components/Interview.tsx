@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 interface InterviewProps {
@@ -15,26 +15,33 @@ interface FollowUpResponse {
   followup_question: string;
 }
 
+const MAX_INPUT_LENGTH = 500; // Maximum allowed input length
+const VALID_CHARACTERS = /^[a-zA-Z0-9\s.,?!'"-]*$/; // Allow letters, numbers, and basic punctuation
+
 const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const { interview } = location.state as { interview: InterviewData } || {};
   
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [conversation, setConversation] = useState<[string, string][]>([]);
+  const [conversation, setConversation] = useState<{ text: string; timestamp: number }[]>([]);
   const [userAnswer, setUserAnswer] = useState("");
   const [loading, setLoading] = useState(false);
   const [followUp, setFollowUp] = useState<string | null>(null);
   const [followUpStage, setFollowUpStage] = useState(0); // 0: No follow-up, 1: First follow-up, 2: Second follow-up
-  const [lastSpokenText, setLastSpokenText] = useState<string | null>(null); // Track the last spoken text (intro/question/outro)
-  const [isRecording, setIsRecording] = useState(false); // Track if recording is ongoing
+  const [lastSpokenText, setLastSpokenText] = useState<string | null>(null);
+  const [isRecording, setIsRecording] = useState(false);
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
-  const [intro, setIntro] = useState<string>(""); // Store GPT intro
-  const [outro, setOutro] = useState<string>(""); // Store GPT outro
-  const [showOutro, setShowOutro] = useState<boolean>(false); // Track if outro is shown
-  const [introFinished, setIntroFinished] = useState<boolean>(false); // Track if intro has finished
-  const [revealedText, setRevealedText] = useState<string>(""); // Track the currently revealed text
-  const [revealIntervalId, setRevealIntervalId] = useState<NodeJS.Timeout | null>(null); // Store the interval ID for text reveal
+  const [intro, setIntro] = useState<string>("");
+  const [outro, setOutro] = useState<string>("");
+  const [showOutro, setShowOutro] = useState<boolean>(false);
+  const [introFinished, setIntroFinished] = useState<boolean>(false);
+  const [revealedText, setRevealedText] = useState<string>("");
+  const [revealIntervalId, setRevealIntervalId] = useState<NodeJS.Timeout | null>(null);
+
+  // Refs for media streams and recorder
+  const audioRecorderRef = useRef<MediaRecorder | null>(null);
+  const recordedChunksRef = useRef<Blob[]>([]);
 
   // Function to stop the ongoing TTS and text reveal
   const stopSpeechAndReveal = () => {
@@ -126,6 +133,11 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
 
     fetchIntroAndOutro();
     initRecognition();
+    startRecordingAudio(); // Start recording audio when the component mounts
+
+    return () => {
+      stopRecordingAudio(); // Stop recording when the component unmounts
+    };
   }, [apiUrl, interview.id]);
 
   // Function to initialize the Speech Recognition API
@@ -138,9 +150,11 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
       recognition.continuous = true; // Keep the recognition running until manually stopped
 
       recognition.onresult = (event: SpeechRecognitionEvent) => {
-        const transcript = Array.from(event.results)
+        let transcript = Array.from(event.results)
           .map(result => result[0].transcript)
           .join(' ');
+
+        transcript = validateInput(transcript); // Validate and sanitize the input
         setUserAnswer(transcript); // Set the captured speech as the user's answer in real-time
       };
 
@@ -165,9 +179,11 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
       recognition.continuous = true; // Keep the recognition running until manually stopped
 
       recognition.onresult = (event: SpeechRecognitionEvent) => {
-        const transcript = Array.from(event.results)
+        let transcript = Array.from(event.results)
           .map(result => result[0].transcript)
           .join(' ');
+
+        transcript = validateInput(transcript); // Validate and sanitize the input
         setUserAnswer(transcript); // Set the captured speech as the user's answer in real-time
       };
 
@@ -187,6 +203,70 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
     } else {
       alert("Speech Recognition API not supported by this browser. Please use Google Chrome or another supported browser.");
     }
+  };
+
+  // Validate and sanitize user input
+  const validateInput = (input: string): string => {
+    // Limit input length
+    let sanitizedInput = input.slice(0, MAX_INPUT_LENGTH);
+
+    // Remove invalid characters
+    sanitizedInput = sanitizedInput.split('').filter(char => VALID_CHARACTERS.test(char)).join('');
+
+    return sanitizedInput;
+  };
+
+  // Start recording audio streams
+  const startRecordingAudio = async () => {
+    try {
+      const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const desktopStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+
+      const audioContext = new AudioContext();
+
+      const micSource = audioContext.createMediaStreamSource(micStream);
+      const desktopSource = audioContext.createMediaStreamSource(desktopStream);
+
+      const destination = audioContext.createMediaStreamDestination();
+
+      micSource.connect(destination);
+      desktopSource.connect(destination);
+
+      const combinedStream = destination.stream;
+
+      audioRecorderRef.current = new MediaRecorder(combinedStream);
+
+      audioRecorderRef.current.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          recordedChunksRef.current.push(event.data);
+        }
+      };
+
+      audioRecorderRef.current.start();
+    } catch (error) {
+      console.error("Error starting audio recording:", error);
+    }
+  };
+
+  // Stop recording audio streams
+  const stopRecordingAudio = () => {
+    if (audioRecorderRef.current) {
+      audioRecorderRef.current.stop();
+      audioRecorderRef.current = null;
+    }
+  };
+
+  // Save the recording
+  const saveRecording = () => {
+    const blob = new Blob(recordedChunksRef.current, { type: 'audio/webm' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.style.display = 'none';
+    a.href = url;
+    a.download = 'interview-recording.webm';
+    document.body.appendChild(a);
+    a.click();
+    window.URL.revokeObjectURL(url);
   };
 
   // Start recording
@@ -212,8 +292,8 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
   const handleNextQuestion = async () => {
     const question = followUp || interview.questions[currentQuestionIndex];
 
-    // Store the current question and user's answer in the conversation array
-    setConversation([...conversation, [question, userAnswer]]);
+    // Store the current question and user's answer in the conversation array with timestamp
+    setConversation([...conversation, { text: question, timestamp: Date.now() }]);
     setUserAnswer("");
     setLoading(true);
 
@@ -311,6 +391,8 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
   
       if (response.ok) {
         console.log("Conversation submitted successfully:", data);
+        stopRecordingAudio(); // Stop recording audio when the interview is submitted
+        saveRecording(); // Save the audio recording
         navigate('/user-dashboard'); // Redirect to the user dashboard
       } else {
         console.error("Error submitting conversation:", data);
@@ -352,7 +434,7 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
             </p>
             <textarea
               value={userAnswer}
-              onChange={(e) => setUserAnswer(e.target.value)}
+              onChange={(e) => setUserAnswer(validateInput(e.target.value))} // Validate and sanitize the input
               className="w-full p-4 text-lg border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-blue-500"
               rows={4}
               placeholder="Your spoken response will appear here..."
