@@ -75,7 +75,6 @@ const ManageInterviews: React.FC<ManageInterviewsProps> = ({ apiUrl }) => {
                 <p className="mt-2 text-gray-600">{interview.description}</p>
                 <button
                   className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-                  onClick={() => handleEditInterview(interview.id)}
                 >
                   Edit
                 </button>

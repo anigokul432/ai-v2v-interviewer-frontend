@@ -1,70 +1,79 @@
-# Getting Started with Create React App
+# Hire AI
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+Hire AI is an AI-powered interview platform that facilitates interactive, AI-driven interviews, allowing enterprises to create, manage, and analyze interviews while providing candidates with a personalized dashboard to track their progress. The platform uses modern web technologies to deliver a seamless and interactive experience for both enterprises and candidates.
 
-## Available Scripts
+### Key Features:
 
-In the project directory, you can run:
+1. **Interactive AI-Driven Interview Process:**
+   - **Introduction:** The AI interviewer begins the interview with an introduction, setting the stage for the candidate.
+   - **Candidate Response:** Candidates can click the "Start response" button to begin recording their answer. They can click "End response" to stop the recording.
+   - **AI Follow-Up:** The AI interviewer listens to the candidate's response and provides follow-up questions or comments, ensuring a dynamic and conversational interview experience.
+   - **Back-and-Forth Dialogue:** This back-and-forth interaction continues throughout the interview, simulating a real-world interview scenario.
+   - **End of Interview:** Once the conversation reaches its natural conclusion, the AI interviewer ends the interview. Alternatively, candidates can click the "End interview" button at any point to conclude the session early.
+   - **Bonus Features:** The platform boasts a visually appealing UI, with AI response latency optimized to under 3 seconds. The system supports interrupting the AI interviewer by allowing candidates to start their response before the AI finishes speaking. Robust input sanitization and prompt engineering techniques are implemented to protect against prompt injection attacks.
 
-### `npm start`
+2. **Enterprise Dashboard:**
+   - Enterprises can manage, create, and edit interviews, and view analytics in a responsive and user-friendly interface.
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+3. **Interview Creation and Management:**
+   - Easy-to-use tools for creating and managing interviews, including specifying questions and tracking candidate performance.
 
-The page will reload when you make changes.\
-You may also see any lint errors in the console.
+4. **Interview Analytics:**
+   - Detailed analytics to monitor interview outcomes, including scores and completion status.
 
-### `npm test`
+5. **User Dashboard:**
+   - Candidates can view and take their assigned interviews, with real-time updates on interview status.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+6. **Google OAuth Integration:** 
+   - Secure Google account sign-in using OAuth 2.0.
 
-### `npm run build`
+7. **Recording and Playback:** 
+   - Interviews are recorded using the MediaRecorder API, with recordings available for download.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+8. **Responsive Navbar:** 
+   - A navigation bar that adapts to scrolling, maintaining a clean and readable interface.
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+### Technologies Used:
+- **Frontend:** React, TypeScript, Tailwind CSS, React Router, Google OAuth
+- **Backend:** FastAPI, PostgreSQL 
+- **APIs:** GPT-3 for follow-up question generation and TTS
+- **Speech Recognition:** Web Speech API
+- **Audio Recording:** MediaRecorder API
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+### Hosting:
+- **Backend:** Hosted on **Azure** via Azure Web Apps for scalable, secure, and reliable service delivery.
+- **Frontend:** Deployed on **GitHub Pages** for easy access and reliability.
 
-### `npm run eject`
+## Potential Enhancements with More Time/Resources:
 
-**Note: this is a one-way operation. Once you `eject`, you can't go back!**
+1. **Comprehensive Testing:** 
+   - Add end-to-end, unit, and integration tests to improve reliability.
 
-If you aren't satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+2. **Scalability Improvements:** 
+   - Optimize backend to handle higher traffic and consider serverless functions for auto-scaling.
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you're on your own.
+3. **Enhanced UI/UX:** 
+   - Introduce advanced features like drag-and-drop question reordering and dynamic dashboards with charts.
 
-You don't have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn't feel obligated to use this feature. However we understand that this tool wouldn't be useful if you couldn't customize it when you are ready for it.
+4. **Real-Time Analytics:** 
+   - Implement real-time feedback on candidate progress and interview outcomes.
 
-## Learn More
+5. **Complete Recording & Transcript Feature:** 
+   - Fully implement the recording and transcript feature, as the current implementation only supports downloading interview recordings.
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+6. **Multi-Language Support:** 
+   - Expand the platform to support multiple languages in both UI and interview processes.
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+7. **Mobile Optimization:** 
+   - Ensure full functionality and performance on mobile devices.
 
-### Code Splitting
+8. **Deployment Automation:** 
+   - Set up CI/CD pipelines for seamless automated testing and deployment.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
+9. **User Roles & Permissions:** 
+   - Add more granular control over user roles and permissions for managing different parts of the application.
 
-### Analyzing the Bundle Size
+10. **Security Enhancements:** 
+    - Implement advanced security features like two-factor authentication (2FA) and end-to-end encryption.
 
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+This project provides a solid foundation for an AI-powered interview platform, with room for further development and refinement.
