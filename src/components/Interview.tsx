@@ -24,23 +24,41 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
   const [conversation, setConversation] = useState<[string, string][]>([]);
   const [userAnswer, setUserAnswer] = useState("");
   const [loading, setLoading] = useState(false);
-  const [followUp, setFollowUp] = useState<string | null>(null);
+  const [followUp, setFollowUp] =useState<string | null>(null);
   const [followUpStage, setFollowUpStage] = useState(0); // 0: No follow-up, 1: First follow-up, 2: Second follow-up
-  const [lastSpokenQuestion, setLastSpokenQuestion] = useState<string | null>(null); // Track the last spoken question
+  const [lastSpokenText, setLastSpokenText] = useState<string | null>(null); // Track the last spoken text (intro/question/outro)
   const [isRecording, setIsRecording] = useState(false); // Track if recording is ongoing
   const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
   const [intro, setIntro] = useState<string>(""); // Store GPT intro
   const [outro, setOutro] = useState<string>(""); // Store GPT outro
   const [showOutro, setShowOutro] = useState<boolean>(false); // Track if outro is shown
   const [introFinished, setIntroFinished] = useState<boolean>(false); // Track if intro has finished
+  const [revealedText, setRevealedText] = useState<string>(""); // Track the currently revealed text
 
-  // Function to handle text-to-speech
-  const speakText = (text: string, callback?: () => void) => {
+  // Function to handle text-to-speech with text reveal
+  const speakTextWithReveal = (text: string, callback?: () => void) => {
+    setRevealedText(""); // Reset revealed text
+    setLastSpokenText(text); // Set the last spoken text for reveal
+
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'en-US'; // Set language; adjust as needed
 
+    let charIndex = 0;
+
+    // Reveal text gradually
+    const revealInterval = setInterval(() => {
+      setRevealedText(text.slice(0, charIndex));
+      charIndex += 1;
+      if (charIndex > text.length) {
+        clearInterval(revealInterval);
+      }
+    }, 50); // Adjust speed of text reveal by changing the interval
+
     if (callback) {
-      utterance.onend = callback;
+      utterance.onend = () => {
+        clearInterval(revealInterval);
+        callback();
+      };
     }
 
     window.speechSynthesis.speak(utterance);
@@ -63,7 +81,7 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
         if (introResponse.ok) {
           setIntro(introData.introduction);
           // Speak the introduction and after it finishes, trigger the first question
-          speakText(introData.introduction, () => {
+          speakTextWithReveal(introData.introduction, () => {
             setIntroFinished(true); // Mark intro as finished
             askFirstQuestion(); // Speak the first question after the intro
           });
@@ -209,7 +227,7 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
         // Set the first follow-up question
         setFollowUp(data.followup_question);
         setFollowUpStage(1);
-        speakText(data.followup_question); // Speak the follow-up question
+        speakTextWithReveal(data.followup_question); // Speak the follow-up question with reveal effect
       } else {
         console.error("Error fetching GPT follow-up:", data);
       }
@@ -234,7 +252,7 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
         // Set the second follow-up question
         setFollowUp(data.followup_question);
         setFollowUpStage(2);
-        speakText(data.followup_question); // Speak the follow-up question
+        speakTextWithReveal(data.followup_question); // Speak the follow-up question with reveal effect
       } else {
         console.error("Error fetching GPT follow-up:", data);
       }
@@ -247,12 +265,12 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
 
       if (currentQuestionIndex + 1 < interview.questions.length) {
         const nextQuestion = interview.questions[currentQuestionIndex + 1];
-        setLastSpokenQuestion(nextQuestion); // Update the last spoken question
-        speakText(nextQuestion); // Speak the next question
+        setLastSpokenText(nextQuestion); // Update the last spoken text
+        speakTextWithReveal(nextQuestion); // Speak the next question with reveal effect
       } else {
         // No more questions, time to show the outro
         setShowOutro(true);
-        speakText(outro, handleSubmitInterview); // Speak the outro and automatically submit the interview
+        speakTextWithReveal(outro, handleSubmitInterview); // Speak the outro and automatically submit the interview
       }
     }
   };
@@ -290,9 +308,14 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
   const askFirstQuestion = () => {
     const firstQuestion = interview.questions[0];
     if (firstQuestion) {
-      setLastSpokenQuestion(firstQuestion); // Update the last spoken question
-      speakText(firstQuestion); // Speak the first question
+      setLastSpokenText(firstQuestion); // Update the last spoken text
+      speakTextWithReveal(firstQuestion); // Speak the first question with reveal effect
     }
+  };
+
+  // Function to handle ending the interview early
+  const endInterview = () => {
+    handleSubmitInterview(); // Submit the interview up to this point
   };
 
   return (
@@ -302,12 +325,14 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
           {interview?.title || 'Interview'}
         </h1>
 
-        {intro && <p className="text-lg text-gray-700 mb-4">{intro}</p>} {/* Display intro message */}
+        {lastSpokenText && !introFinished && (
+          <p className="text-lg text-gray-700 mb-4">{revealedText}</p> // Display revealed intro
+        )}
 
         {introFinished && (currentQuestionIndex < interview.questions.length || followUp) && !loading && (
           <>
             <p className="text-lg text-gray-700 mb-4">
-              <span className="font-semibold text-blue-600">Q:</span> {followUp || interview.questions[currentQuestionIndex]}
+              <span className="font-semibold text-blue-600">Q:</span> {revealedText}
             </p>
             <textarea
               value={userAnswer}
@@ -340,7 +365,7 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
 
         {showOutro && (
           <>
-            <p className="text-lg text-gray-700 mt-4">{outro}</p> {/* Display outro message */}
+            <p className="text-lg text-gray-700 mt-4">{revealedText}</p> {/* Display revealed outro */}
             <button
               onClick={() => navigate('/user-dashboard')} // Redirect to home after interview is submitted
               className="w-full mt-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
@@ -348,6 +373,15 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
               Go Home
             </button>
           </>
+        )}
+
+        {!showOutro && introFinished && (
+          <button
+            onClick={endInterview}
+            className="w-full mt-6 py-3 bg-red-600 text-white font-semibold rounded-lg shadow-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+          >
+            End Interview
+          </button>
         )}
       </div>
     </div>
