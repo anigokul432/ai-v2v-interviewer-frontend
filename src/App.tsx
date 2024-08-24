@@ -11,8 +11,8 @@ import SignIn from './components/SignIn';
 import Analytics from './components/Analytics';
 
 const App: React.FC = () => {
-  // const apiUrl = 'https://ai-interview-bot1-dsctbpcsamcsgqas.southindia-01.azurewebsites.net';
-  const apiUrl = 'http://localhost:8000';
+  const apiUrl = 'https://ai-interview-bot1-dsctbpcsamcsgqas.southindia-01.azurewebsites.net';
+  // const apiUrl = 'http://localhost:8000';
 
   return (
     <Router>
