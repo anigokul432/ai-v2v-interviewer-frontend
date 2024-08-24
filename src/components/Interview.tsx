@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 interface InterviewProps {
@@ -26,10 +26,99 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
   const [loading, setLoading] = useState(false);
   const [followUp, setFollowUp] = useState<string | null>(null);
   const [followUpStage, setFollowUpStage] = useState(0); // 0: No follow-up, 1: First follow-up, 2: Second follow-up
+  const [lastSpokenQuestion, setLastSpokenQuestion] = useState<string | null>(null); // Track the last spoken question
+  const [isRecording, setIsRecording] = useState(false); // Track if recording is ongoing
+  const [recognition, setRecognition] = useState<SpeechRecognition | null>(null);
 
+  // Function to handle text-to-speech
+  const speakText = (text: string) => {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US'; // Set language; adjust as needed
+    window.speechSynthesis.speak(utterance);
+  };
+
+  // Function to initialize the Speech Recognition API
+  const initRecognition = () => {
+    if ('webkitSpeechRecognition' in window) {
+      const recognition = new webkitSpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = true; // Enable interim results for real-time updates
+      recognition.maxAlternatives = 1;
+      recognition.continuous = true; // Keep the recognition running until manually stopped
+
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
+        const transcript = Array.from(event.results)
+          .map(result => result[0].transcript)
+          .join(' ');
+        setUserAnswer(transcript); // Set the captured speech as the user's answer in real-time
+      };
+
+      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+        console.error("Speech Recognition Error:", event.error);
+      };
+
+      recognition.onend = () => {
+        if (isRecording) {
+          recognition.start(); // Restart if it stops automatically
+        } else {
+          setIsRecording(false); // Update recording state
+        }
+      };
+
+      setRecognition(recognition);
+    } else if ('SpeechRecognition' in window) {
+      const recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = true; // Enable interim results for real-time updates
+      recognition.maxAlternatives = 1;
+      recognition.continuous = true; // Keep the recognition running until manually stopped
+
+      recognition.onresult = (event: SpeechRecognitionEvent) => {
+        const transcript = Array.from(event.results)
+          .map(result => result[0].transcript)
+          .join(' ');
+        setUserAnswer(transcript); // Set the captured speech as the user's answer in real-time
+      };
+
+      recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
+        console.error("Speech Recognition Error:", event.error);
+      };
+
+      recognition.onend = () => {
+        if (isRecording) {
+          recognition.start(); // Restart if it stops automatically
+        } else {
+          setIsRecording(false); // Update recording state
+        }
+      };
+
+      setRecognition(recognition);
+    } else {
+      alert("Speech Recognition API not supported by this browser. Please use Google Chrome or another supported browser.");
+    }
+  };
+
+  // Start recording
+  const startRecording = () => {
+    if (recognition && !isRecording) {
+      recognition.start();
+      setIsRecording(true);
+      setUserAnswer(""); // Clear previous answer
+    }
+  };
+
+  // Stop recording
+  const stopRecording = () => {
+    if (recognition && isRecording) {
+      recognition.stop();
+      setIsRecording(false);
+    }
+  };
+
+  // Function to handle the next question and TTS
   const handleNextQuestion = async () => {
     const question = followUp || interview.questions[currentQuestionIndex];
-    
+
     // Store the current question and user's answer in the conversation array
     setConversation([...conversation, [question, userAnswer]]);
     setUserAnswer("");
@@ -121,6 +210,23 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
     }
   };
 
+  // Use effect to trigger TTS for the initial question or follow-up question
+  useEffect(() => {
+    const question = followUp || interview?.questions[currentQuestionIndex];
+    
+    // Only speak if the question has changed
+    if (question && question !== lastSpokenQuestion) {
+      setLastSpokenQuestion(question); // Update the last spoken question
+      // Delay TTS slightly to ensure state has settled
+      setTimeout(() => speakText(question), 100); // 100ms delay
+    }
+  }, [followUp, currentQuestionIndex]);
+
+  // Initialize recognition on mount
+  useEffect(() => {
+    initRecognition();
+  }, []);
+
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-r from-blue-50 to-blue-100">
       <div className="bg-white shadow-lg rounded-lg p-8 w-full max-w-3xl">
@@ -138,11 +244,29 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
               onChange={(e) => setUserAnswer(e.target.value)}
               className="w-full p-4 text-lg border-2 border-gray-300 rounded-lg focus:border-blue-500 focus:ring-blue-500"
               rows={4}
-              placeholder="Type your answer here..."
+              placeholder="Your spoken response will appear here..."
+              readOnly
             />
+            <div className="flex justify-between mt-4">
+              <button
+                onClick={startRecording}
+                className={`w-1/3 py-3 ${isRecording ? 'bg-red-600' : 'bg-blue-600'} text-white font-semibold rounded-lg shadow-lg hover:${isRecording ? 'bg-red-700' : 'bg-blue-700'} focus:outline-none focus:ring-2 focus:ring-offset-2`}
+                disabled={isRecording}
+              >
+                {isRecording ? 'Recording...' : 'Start Response'}
+              </button>
+              <button
+                onClick={stopRecording}
+                className="w-1/3 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2"
+                disabled={!isRecording}
+              >
+                End Response
+              </button>
+            </div>
             <button
               onClick={handleNextQuestion}
               className="w-full mt-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+              disabled={isRecording} // Disable "Next" if recording is ongoing
             >
               {followUpStage === 0 ? "Submit Answer" : "Next Follow-Up"}
             </button>
