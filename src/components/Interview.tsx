@@ -15,6 +15,12 @@ interface FollowUpResponse {
   followup_question: string;
 }
 
+interface ConversationEntry {
+  question: string;
+  answer: string;
+  timestamp: number;
+}
+
 const MAX_INPUT_LENGTH = 500; // Maximum allowed input length
 const VALID_CHARACTERS = /^[a-zA-Z0-9\s.,?!'"-]*$/; // Allow letters, numbers, and basic punctuation
 
@@ -24,7 +30,7 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
   const { interview } = location.state as { interview: InterviewData } || {};
   
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [conversation, setConversation] = useState<{ text: string; timestamp: number }[]>([]);
+  const [conversation, setConversation] = useState<ConversationEntry[]>([]);
   const [userAnswer, setUserAnswer] = useState("");
   const [loading, setLoading] = useState(false);
   const [followUp, setFollowUp] = useState<string | null>(null);
@@ -219,34 +225,57 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
   // Start recording audio streams
   const startRecordingAudio = async () => {
     try {
-      const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const desktopStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
-
-      const audioContext = new AudioContext();
-
-      const micSource = audioContext.createMediaStreamSource(micStream);
-      const desktopSource = audioContext.createMediaStreamSource(desktopStream);
-
-      const destination = audioContext.createMediaStreamDestination();
-
-      micSource.connect(destination);
-      desktopSource.connect(destination);
-
-      const combinedStream = destination.stream;
-
-      audioRecorderRef.current = new MediaRecorder(combinedStream);
-
-      audioRecorderRef.current.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          recordedChunksRef.current.push(event.data);
+        // Capture the microphone audio
+        const micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        
+        // Attempt to capture system audio
+        let desktopStream;
+        try {
+            desktopStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    echoCancellation: false,
+                    noiseSuppression: false,
+                    sampleRate: 44100,
+                }
+            });
+        } catch (err) {
+            console.warn("System audio capture not supported or permission denied, proceeding with mic audio only.", err);
         }
-      };
 
-      audioRecorderRef.current.start();
+        const audioContext = new AudioContext();
+        const destination = audioContext.createMediaStreamDestination();
+
+        // Add microphone audio to the destination
+        const micSource = audioContext.createMediaStreamSource(micStream);
+        micSource.connect(destination);
+
+        // Add system audio to the destination if available
+        if (desktopStream && desktopStream.getAudioTracks().length > 0) {
+            const desktopSource = audioContext.createMediaStreamSource(desktopStream);
+            desktopSource.connect(destination);
+        } else {
+            console.warn("No system audio track available.");
+        }
+
+        // Combined stream with mic (and optionally desktop audio)
+        const combinedStream = destination.stream;
+
+        // Record the combined stream
+        audioRecorderRef.current = new MediaRecorder(combinedStream);
+
+        audioRecorderRef.current.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+                recordedChunksRef.current.push(event.data);
+            }
+        };
+
+        audioRecorderRef.current.start();
+        console.log("Audio recording started.");
     } catch (error) {
-      console.error("Error starting audio recording:", error);
+        console.error("Error starting audio recording:", error);
     }
-  };
+};
+
 
   // Stop recording audio streams
   const stopRecordingAudio = () => {
@@ -292,14 +321,17 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
   const handleNextQuestion = async () => {
     const question = followUp || interview.questions[currentQuestionIndex];
 
-    // Store the current question and user's answer in the conversation array with timestamp
-    setConversation([...conversation, { text: question, timestamp: Date.now() }]);
+    // Store the current question, user's answer, and timestamp in the conversation array
+    const timestamp = Date.now();
+    const newEntry: ConversationEntry = { question, answer: userAnswer, timestamp };
+    setConversation([...conversation, newEntry]); // Include timestamp
+
     setUserAnswer("");
     setLoading(true);
 
     // Clear the intro after the first question is answered
     if (currentQuestionIndex === 0) {
-      setIntro("");
+        setIntro("");
     }
 
     if (followUpStage === 0) {
@@ -372,35 +404,55 @@ const Interview: React.FC<InterviewProps> = ({ apiUrl }) => {
   };
 
   const handleSubmitInterview = async () => {
+    // Stop the recording immediately and save the data
+    stopRecordingAudio(); // Stop the recording
+    const recordingBlob = new Blob(recordedChunksRef.current, { type: 'audio/webm' }); // Create a blob from the recorded chunks
+    
+    // Convert Blob to Base64
+    const recordingBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            resolve(reader.result as string);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(recordingBlob);
+    });
+
+    // Prepare the conversation in the format expected by the backend
+    const formattedConversation = conversation.map(entry => [entry.question, entry.answer, entry.timestamp]);
+
+    // Prepare the payload with the recording as a Base64 string
     const payload = {
-      interview_id: interview.id,
-      conversation: conversation,
+        interview_id: interview.id,
+        conversation: formattedConversation,
+        recording: recordingBase64.split(',')[1], // Remove the data URL prefix (e.g., "data:audio/webm;base64,")
     };
-  
+
     try {
-      const response = await fetch(`${apiUrl}/interview/submit-conversation`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-  
-      const data = await response.json();
-  
-      if (response.ok) {
-        console.log("Conversation submitted successfully:", data);
-        stopRecordingAudio(); // Stop recording audio when the interview is submitted
-        saveRecording(); // Save the audio recording
-        navigate('/user-dashboard'); // Redirect to the user dashboard
-      } else {
-        console.error("Error submitting conversation:", data);
-      }
+        const response = await fetch(`${apiUrl}/interview/submit-conversation`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${localStorage.getItem('token')}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(payload), // Send the payload with the conversation and recording
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            console.log("Conversation submitted successfully:", data);
+            saveRecording(); // Save the audio recording locally (optional)
+            navigate('/user-dashboard'); // Redirect to the user dashboard
+        } else {
+            console.error("Error submitting conversation:", data);
+        }
     } catch (error) {
-      console.error("Error submitting conversation:", error);
+        console.error("Error submitting conversation:", error);
     }
-  };
+};
+
+
 
   // Function to ask the first question after the intro is spoken
   const askFirstQuestion = () => {
